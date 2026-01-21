@@ -1,0 +1,28 @@
+%% Sequence diagram for Payment flow
+sequenceDiagram
+  participant U as User (Browser)
+  participant FE as Frontend (React)
+  participant PS as Payments Service
+  participant DB as Database
+  participant BS as Bank Simulator
+
+  U->>FE: Click "Create Payment"
+  FE->>PS: POST /api/payments { amount, currency, payerName, payerEmail }
+  PS->>DB: INSERT payment (status = PENDING)
+  PS->>BS: POST /bank/api/charge { amount, currency, metadata }
+  alt Bank approves
+    BS-->>PS: { status: APPROVED, transactionId, approvedAt }
+    PS->>DB: UPDATE payment SET status = COMPLETED, providerTransactionId = transactionId
+  else Bank declines
+    BS-->>PS: { status: DECLINED, reason }
+    PS->>DB: UPDATE payment SET status = FAILED
+  end
+  PS-->>FE: 201 Created + PaymentResponse (id, amount, currency, status, providerTransactionId)
+  FE-->>U: render success / failure to user
+
+  Note right of PS: PaymentService may also emit events (e.g., SNS/SQS) for downstream processing
+
+
+
+
+
